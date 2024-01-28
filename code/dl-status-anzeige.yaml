@@ -1,0 +1,136 @@
+
+substitutions:
+  devicename: dl-status-anzeige
+  friendly_name: dl_status_anzeige
+  device_description: DL Statusanzeige LED
+  apikey: "add your appy key here"
+  # I use fix IP addresses
+  myip: 192.168.0.127
+  dev_area: Diele
+
+# https://esphome.io/components/esphome
+esphome:
+  name: ${devicename}
+  comment: ${device_description}
+  area: ${dev_area}  
+  
+# https://esphome.io/components/esp32
+esp32:
+    board: esp32dev
+
+# https://esphome.io/components/wifi
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  domain: .fritz.box  
+
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: ${devicename}
+    password: !secret AP_Password
+
+  manual_ip:
+      # I use static IP adresses
+      static_ip: ${myip}
+      gateway: 192.168.0.1
+      subnet: 255.255.255.0
+      dns1: 192.168.0.1
+
+# https://esphome.io/components/captive_portal
+captive_portal:    
+
+# https://esphome.io/components/logger
+# Enable logging
+logger:
+
+# https://esphome.io/components/web_server
+# Enable Web server
+web_server:
+  port: 80
+
+# https://esphome.io/components/api
+# Enable Home Assistant API
+api:
+  encryption:
+    key: ${apikey}
+
+  # home assistant can use this interface to set each single LED
+  services:
+    - service: change_dl_led
+      variables:
+        # LED identifier 0..15 where 0 = top right 15 = top left
+        my_led_id: int
+        # RGB color 0..1
+        my_red: float
+        my_green: float
+        my_blue : float
+        my_brightness : float
+      then:
+        - light.addressable_set:
+            id: led_stripe
+            range_from: !lambda 'return my_led_id;'
+            range_to: !lambda 'return my_led_id;'
+            color_brightness: !lambda 'return my_brightness;'
+            red: !lambda 'return my_red;'
+            green: !lambda 'return my_green;'
+            blue: !lambda 'return my_blue;'
+
+# https://esphome.io/components/ota
+ota:
+  password: !secret OTA_Password
+
+# https://esphome.io/components/time/
+# Enable time component for use by daily power sensor
+time:
+  - platform: homeassistant
+    id: homeassistant_time
+
+# https://esphome.io/components/display/#config-color    
+#color:
+#  - id: my_red
+#    red: 30%
+#    green: 0%
+#    blue: 0%
+    
+# https://esphome.io/components/light/esp32_rmt_led_strip.html?highlight=esp32_rmt_led_strip
+light:
+  - platform: esp32_rmt_led_strip
+    id: led_stripe
+    rgb_order: GRB
+    pin: GPIO13
+    num_leds: 16
+    rmt_channel: 0
+    chipset: ws2812
+    # name: "DL Status LEDs"
+
+# https://community.home-assistant.io/t/ssd1306-as-display-in-automation-possible/329967/6
+text_sensor:
+  # Reports the ESPHome Version with compile date
+  - platform: version
+    name: ${friendly_name} ESPHome Version
+
+# Reports detailed wifi info, can be commented out
+  - platform: wifi_info
+    ip_address:
+      name: ${friendly_name} IP Address
+    # ssid: # Some additional wifi info that is not normally needed
+    #   name: ${friendly_name} Connected SSID
+    # bssid:
+    #   name: ${friendly_name} Connected BSSID
+
+sensor:
+# Reports how long the device has been powered (in minutes)
+  - platform: uptime
+    name: ${friendly_name} Uptime
+    filters:
+      - lambda: return x / 60.0;
+    unit_of_measurement: min
+
+# Reports the WiFi signal strength
+  - platform: wifi_signal
+    name: ${friendly_name} Wifi Signal
+    update_interval: 60s
+
+
+
+    
